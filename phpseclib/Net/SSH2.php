@@ -2696,7 +2696,12 @@ class Net_SSH2
         }
 
         $start = strtok(microtime(), ' ') + strtok(''); // http://php.net/microtime#61838
-        $raw = fread($this->fsock, $this->decrypt_block_size);
+        
+        // fread() may return less data than *length* bytes
+        $raw = '';
+        while (strlen($raw) < $this->decrypt_block_size) {
+            $raw .= fread($this->fsock, $this->decrypt_block_size - strlen($raw));
+        }
 
         if (!strlen($raw)) {
             return '';
