@@ -2683,7 +2683,12 @@ class SSH2
         }
 
         $start = microtime(true);
-        $raw = fread($this->fsock, $this->decrypt_block_size);
+
+        // fread() may return less data than *length* bytes
+        $raw = '';
+        while (strlen($raw) < $this->decrypt_block_size) {
+            $raw .= fread($this->fsock, $this->decrypt_block_size - strlen($raw));
+        }
 
         if (!strlen($raw)) {
             return '';
