@@ -238,6 +238,15 @@ class SFTP extends SSH2
      */
     var $sortOptions = array();
 
+
+    /** 
+     * Hack Login Error 
+     * In case something bad happens in login(), this string will contain clues
+     * @var String
+     * @access public
+     */
+    var $hackLoginError = '';
+
     /**
      * Default Constructor.
      *
@@ -388,8 +397,11 @@ class SFTP extends SSH2
      */
     function login($username)
     {
+        $this->hackLoginError = '';
+
         $args = func_get_args();
         if (!call_user_func_array(array(&$this, '_login'), $args)) {
+            $this->hackLoginError = 'login returned false at ' . strval(__LINE__ + 1);
             return false;
         }
 
@@ -399,6 +411,7 @@ class SFTP extends SSH2
             NET_SSH2_MSG_CHANNEL_OPEN, strlen('session'), 'session', self::CHANNEL, $this->window_size, 0x4000);
 
         if (!$this->_send_binary_packet($packet)) {
+            $this->hackLoginError = 'login returned false at ' . strval(__LINE__ + 1);
             return false;
         }
 
@@ -406,12 +419,14 @@ class SFTP extends SSH2
 
         $response = $this->_get_channel_packet(self::CHANNEL);
         if ($response === false) {
+            $this->hackLoginError = 'login returned false at ' . strval(__LINE__ + 1);
             return false;
         }
 
         $packet = pack('CNNa*CNa*',
             NET_SSH2_MSG_CHANNEL_REQUEST, $this->server_channels[self::CHANNEL], strlen('subsystem'), 'subsystem', 1, strlen('sftp'), 'sftp');
         if (!$this->_send_binary_packet($packet)) {
+            $this->hackLoginError = 'login returned false at ' . strval(__LINE__ + 1);
             return false;
         }
 
@@ -428,6 +443,7 @@ class SFTP extends SSH2
             $packet = pack('CNNa*CNa*',
                 NET_SSH2_MSG_CHANNEL_REQUEST, $this->server_channels[self::CHANNEL], strlen('exec'), 'exec', 1, strlen($command), $command);
             if (!$this->_send_binary_packet($packet)) {
+                $this->hackLoginError = 'login returned false at ' . strval(__LINE__ + 1);
                 return false;
             }
 
@@ -435,6 +451,7 @@ class SFTP extends SSH2
 
             $response = $this->_get_channel_packet(self::CHANNEL);
             if ($response === false) {
+                $this->hackLoginError = 'login returned false at ' . strval(__LINE__ + 1);
                 return false;
             }
         }
@@ -442,12 +459,14 @@ class SFTP extends SSH2
         $this->channel_status[self::CHANNEL] = NET_SSH2_MSG_CHANNEL_DATA;
 
         if (!$this->_send_sftp_packet(NET_SFTP_INIT, "\0\0\0\3")) {
+            $this->hackLoginError = 'NET_SFTP_INIT login returned false at ' . strval(__LINE__ + 1);
             return false;
         }
 
         $response = $this->_get_sftp_packet();
         if ($this->packet_type != NET_SFTP_VERSION) {
             user_error('Expected SSH_FXP_VERSION');
+            $this->hackLoginError = 'Expected SSH_FXP_VERSION; login returned false at ' . strval(__LINE__ + 1);
             return false;
         }
 
@@ -505,6 +524,7 @@ class SFTP extends SSH2
             case 3:
                 break;
             default:
+                $this->hackLoginError = 'login returned false at ' . strval(__LINE__ + 1);
                 return false;
         }
 
