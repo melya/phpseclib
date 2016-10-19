@@ -839,6 +839,16 @@ class SSH2
      */
     var $agent;
 
+    /** 
+     * Hack Login Error 
+     * In case something bad happens in login(), this string will contain clues
+     * @var String
+     * @access public
+     */
+    var $hackLoginError = '';
+
+
+
     /**
      * Default Constructor.
      *
@@ -949,6 +959,7 @@ class SSH2
     function _connect()
     {
         if ($this->bitmap & self::MASK_CONSTRUCTOR) {
+            $this->hackLoginError .= 'connect returned false at ' . strval(__LINE__ + 1);
             return false;
         }
 
@@ -963,7 +974,9 @@ class SSH2
         $start = microtime(true);
         $this->fsock = @fsockopen($this->host, $this->port, $errno, $errstr, $this->curTimeout);
         if (!$this->fsock) {
-            user_error(rtrim("Cannot connect to $host. Error $errno. $errstr"));
+            $str = rtrim("Cannot connect to $host. Error $errno. $errstr");
+            $this->hackLoginError .= $str.';connect returned false at ' . strval(__LINE__ + 2);
+            user_error($str);
             return false;
         }
         $elapsed = microtime(true) - $start;
@@ -972,6 +985,7 @@ class SSH2
 
         if ($this->curTimeout <= 0) {
             $this->is_timeout = true;
+            $this->hackLoginError .= 'timeout in if(); connect returned false at ' . strval(__LINE__ + 1);
             return false;
         }
 
@@ -993,6 +1007,7 @@ class SSH2
             if ($this->curTimeout) {
                 if ($this->curTimeout < 0) {
                     $this->is_timeout = true;
+                    $this->hackLoginError .= 'timeout in if(); connect returned false at ' . strval(__LINE__ + 1);
                     return false;
                 }
                 $read = array($this->fsock);
@@ -1004,6 +1019,7 @@ class SSH2
                 // the !count() is done as a workaround for <https://bugs.php.net/42682>
                 if (!@stream_select($read, $write, $except, $sec, $usec) && !count($read)) {
                     $this->is_timeout = true;
+                    $this->hackLoginError .= 'timeout in stream_select; connect returned false at ' . strval(__LINE__ + 1);
                     return false;
                 }
                 $elapsed = microtime(true) - $start;
@@ -1014,6 +1030,7 @@ class SSH2
         }
 
         if (feof($this->fsock)) {
+            $this->hackLoginError .= 'Connection closed by server;connect returned false at ' . strval(__LINE__ + 2);
             user_error('Connection closed by server');
             return false;
         }
@@ -1031,6 +1048,7 @@ class SSH2
         }
 
         if ($matches[1] != '1.99' && $matches[1] != '2.0') {
+            $this->hackLoginError .= 'connect returned false at ' . strval(__LINE__ + 2);
             user_error("Cannot connect to SSH $matches[1] servers");
             return false;
         }
@@ -1039,16 +1057,19 @@ class SSH2
 
         $response = $this->_get_binary_packet();
         if ($response === false) {
+            $this->hackLoginError .= 'connect returned false at ' . strval(__LINE__ + 2);
             user_error('Connection closed by server');
             return false;
         }
 
         if (ord($response[0]) != NET_SSH2_MSG_KEXINIT) {
+            $this->hackLoginError .= 'connect returned false at ' . strval(__LINE__ + 2);
             user_error('Expected SSH_MSG_KEXINIT');
             return false;
         }
 
         if (!$this->_key_exchange($response)) {
+            $this->hackLoginError .= 'connect returned false at ' . strval(__LINE__ + 1);
             return false;
         }
 
