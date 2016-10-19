@@ -239,14 +239,6 @@ class SFTP extends SSH2
     var $sortOptions = array();
 
 
-    /** 
-     * Hack Login Error 
-     * In case something bad happens in login(), this string will contain clues
-     * @var String
-     * @access public
-     */
-    var $hackLoginError = '';
-
     /**
      * Default Constructor.
      *
@@ -401,7 +393,8 @@ class SFTP extends SSH2
 
         $args = func_get_args();
         if (!call_user_func_array(array(&$this, '_login'), $args)) {
-            $this->hackLoginError = 'login returned false at ' . strval(__LINE__ + 1);
+            // concat because _login could put something there 
+            $this->hackLoginError .= ';login returned false at ' . strval(__LINE__ + 1);
             return false;
         }
 
