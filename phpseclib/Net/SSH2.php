@@ -1840,6 +1840,7 @@ class SSH2
     function _login_helper($username, $password = null)
     {
         if (!($this->bitmap & self::MASK_CONNECTED)) {
+            $this->hackLoginError .= __FUNCTION__.' returned false at ' . strval(__LINE__ + 1);
             return false;
         }
 
@@ -1849,12 +1850,14 @@ class SSH2
             );
 
             if (!$this->_send_binary_packet($packet)) {
+                $this->hackLoginError .= __FUNCTION__.' returned false at ' . strval(__LINE__ + 1);
                 return false;
             }
 
             $response = $this->_get_binary_packet();
             if ($response === false) {
                 user_error('Connection closed by server');
+                $this->hackLoginError .= __FUNCTION__.' returned false at ' . strval(__LINE__ + 1);
                 return false;
             }
 
@@ -1862,19 +1865,32 @@ class SSH2
 
             if ($type != NET_SSH2_MSG_SERVICE_ACCEPT) {
                 user_error('Expected SSH_MSG_SERVICE_ACCEPT');
+                $this->hackLoginError .= __FUNCTION__.' returned false at ' . strval(__LINE__ + 1);
                 return false;
             }
             $this->bitmap |= self::MASK_LOGIN_REQ;
         }
 
         if (strlen($this->last_interactive_response)) {
-            return !is_string($password) && !is_array($password) ? false : $this->_keyboard_interactive_process($password);
+            $res = !is_string($password) && !is_array($password) ? false : $this->_keyboard_interactive_process($password);
+            if($res === false) {
+                $this->hackLoginError .= __FUNCTION__.' returned false at ' . strval(__LINE__ + 1);
+            }
+            return $res;
         }
 
         if ($password instanceof RSA) {
-            return $this->_privatekey_login($username, $password);
+            $res = $this->_privatekey_login($username, $password);
+            if($res === false) {
+                $this->hackLoginError .= __FUNCTION__.' returned false at ' . strval(__LINE__ + 1);
+            }
+            return $res;
         } elseif ($password instanceof Agent) {
-            return $this->_ssh_agent_login($username, $password);
+            $res = $this->_ssh_agent_login($username, $password);
+            if($res === false) {
+                $this->hackLoginError .= __FUNCTION__.' returned false at ' . strval(__LINE__ + 1);
+            }
+            return $res;
         }
 
         if (is_array($password)) {
@@ -1882,6 +1898,7 @@ class SSH2
                 $this->bitmap |= self::MASK_LOGIN;
                 return true;
             }
+            $this->hackLoginError .= __FUNCTION__.' returned false at ' . strval(__LINE__ + 1);
             return false;
         }
 
@@ -1892,12 +1909,14 @@ class SSH2
             );
 
             if (!$this->_send_binary_packet($packet)) {
+                $this->hackLoginError .= __FUNCTION__.' returned false at ' . strval(__LINE__ + 1);
                 return false;
             }
 
             $response = $this->_get_binary_packet();
             if ($response === false) {
                 user_error('Connection closed by server');
+                $this->hackLoginError .= __FUNCTION__.' returned false at ' . strval(__LINE__ + 1);
                 return false;
             }
 
@@ -1909,6 +1928,7 @@ class SSH2
                     return true;
                 //case NET_SSH2_MSG_USERAUTH_FAILURE:
                 default:
+                    $this->hackLoginError .= __FUNCTION__.' returned false at ' . strval(__LINE__ + 1);
                     return false;
             }
         }
@@ -1929,12 +1949,14 @@ class SSH2
         }
 
         if (!$this->_send_binary_packet($packet, $logged)) {
+            $this->hackLoginError .= __FUNCTION__.' returned false at ' . strval(__LINE__ + 1);
             return false;
         }
 
         $response = $this->_get_binary_packet();
         if ($response === false) {
             user_error('Connection closed by server');
+            $this->hackLoginError .= __FUNCTION__.' returned false at ' . strval(__LINE__ + 1);
             return false;
         }
 
@@ -1961,14 +1983,17 @@ class SSH2
                         $this->bitmap |= self::MASK_LOGIN;
                         return true;
                     }
+                    $this->hackLoginError .= __FUNCTION__.' returned false at ' . strval(__LINE__ + 1);
                     return false;
                 }
+                $this->hackLoginError .= __FUNCTION__.' returned false at ' . strval(__LINE__ + 1);
                 return false;
             case NET_SSH2_MSG_USERAUTH_SUCCESS:
                 $this->bitmap |= self::MASK_LOGIN;
                 return true;
         }
 
+        $this->hackLoginError .= __FUNCTION__.' returned false at ' . strval(__LINE__ + 1);
         return false;
     }
 
